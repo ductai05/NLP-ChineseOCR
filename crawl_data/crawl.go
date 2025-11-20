@@ -201,10 +201,11 @@ func downloadFile(url string, filepath string) error {
 
 // ImageInfo represents information about a single image/page
 type ImageInfo struct {
-	ImageID  string `json:"image_id"`
-	ImageURL string `json:"image_url"`
-	Text     string `json:"text"`
-	Index    int    `json:"index"`
+	ImageID      string `json:"image_id"`
+	ImageURL     string `json:"image_url"`
+	OriginalText string `json:"original_text"`
+	CleanText    string `json:"clean_text"`
+	Index        int    `json:"index"`
 }
 
 // BookImageMetadata represents all images metadata for a book
@@ -256,6 +257,7 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 		// Find the parent dl
 		dl := s.Closest("dl")
 		text := ""
+		clean_text := ""
 		if dl.Length() > 0 {
 			// Find the text container (dt.ch)
 			dt := dl.Find("dt.ch")
@@ -271,7 +273,7 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 
 				text = dtClone.Text()
 				// Clean text
-				text = CleanText(text)
+				clean_text = CleanText(text)
 			} else {
 				fmt.Printf("Could not find dt.ch for image %s\n", imageID)
 			}
@@ -280,10 +282,11 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 		}
 
 		images = append(images, ImageInfo{
-			ImageID:  imageID,
-			ImageURL: imageURL,
-			Text:     text,
-			Index:    i,
+			ImageID:      imageID,
+			ImageURL:     imageURL,
+			OriginalText: text,
+			CleanText:    clean_text,
+			Index:        i,
 		})
 	})
 

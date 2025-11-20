@@ -58,9 +58,16 @@ func ResizeImage(path string) error {
 // This usually means keeping CJK characters and removing everything else that is not a character.
 func CleanText(text string) string {
 	var builder strings.Builder
+	lastWasNewline := false
 	for _, r := range text {
-		if !unicode.IsPunct(r) && !unicode.IsSpace(r) && !unicode.IsSymbol(r) {
+		if r == '\n' || r == '\r' {
+			if !lastWasNewline {
+				builder.WriteRune('\n')
+				lastWasNewline = true
+			}
+		} else if !unicode.IsPunct(r) && !unicode.IsSpace(r) && !unicode.IsSymbol(r) {
 			builder.WriteRune(r)
+			lastWasNewline = false
 		}
 	}
 	return builder.String()
