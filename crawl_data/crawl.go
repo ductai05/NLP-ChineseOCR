@@ -20,7 +20,7 @@ type Setting struct {
 
 func Crawl_NLP_Data() {
 	setting := Setting{
-		DataFolder: "E:\\data_nlp",
+		DataFolder: ".\\data_nlp",
 		Url:        "https://kabc.dongguk.edu",
 	}
 
