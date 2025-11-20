@@ -203,6 +203,7 @@ func downloadFile(url string, filepath string) error {
 type ImageInfo struct {
 	ImageID  string `json:"image_id"`
 	ImageURL string `json:"image_url"`
+	Text     string `json:"text"`
 	Index    int    `json:"index"`
 }
 
@@ -237,7 +238,7 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 		return err
 	}
 
-	// Extract all image IDs
+	// Extract all image IDs and corresponding text
 	var images []ImageInfo
 	doc.Find("[data-xsl-kid]").Each(func(i int, s *goquery.Selection) {
 		imageID, exists := s.Attr("data-xsl-kid")
@@ -247,9 +248,41 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 
 		imageURL := fmt.Sprintf("%s/data/image/ABC_BJ/ABC_BJ_%s/ABC_BJ_%s_%s.jpg", setting.Url, bookID, bookID, imageID)
 
+		// Extract Text
+		// The text corresponding to this image/page is in a sibling `dt` element within the same `dl` container.
+		// Structure: dl -> span.btns -> button[data-xsl-kid] (Image ID)
+		//            dl -> dt.ch (Text)
+
+		// Find the parent dl
+		dl := s.Closest("dl")
+		text := ""
+		if dl.Length() > 0 {
+			// Find the text container (dt.ch)
+			dt := dl.Find("dt.ch")
+			if dt.Length() > 0 {
+				// Clone the selection to avoid modifying the original document
+				dtClone := dt.Clone()
+
+				// Remove line numbers: span[data-xsl-tag="line"]
+				dtClone.Find("span[data-xsl-tag='line']").Remove()
+
+				// Remove footnotes: span[data-xsl-tag="주석"]
+				dtClone.Find("span[data-xsl-tag='주석']").Remove()
+
+				text = dtClone.Text()
+				// Clean text
+				text = CleanText(text)
+			} else {
+				fmt.Printf("Could not find dt.ch for image %s\n", imageID)
+			}
+		} else {
+			fmt.Printf("Could not find parent dl for image %s\n", imageID)
+		}
+
 		images = append(images, ImageInfo{
 			ImageID:  imageID,
 			ImageURL: imageURL,
+			Text:     text,
 			Index:    i,
 		})
 	})
