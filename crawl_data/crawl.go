@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,8 +68,28 @@ func Crawl_NLP_Data() {
 func DownloadImagesFromJSON(bookID string, setting Setting) error {
 	fmt.Printf("Downloading images from JSON for book: %s\n", bookID)
 
-	// Construct JSON file path
-	jsonPath := filepath.Join(setting.DataFolder, bookID, fmt.Sprintf("%s_images.json", bookID))
+	// First, we need to find the correct folder by searching for folders matching the pattern *_<bookID>
+	// or we can read available JSON files to find the book name
+	var jsonPath string
+	var folderName string
+
+	// Search for folders matching pattern *_<bookID>
+	entries, err := os.ReadDir(setting.DataFolder)
+	if err != nil {
+		return fmt.Errorf("failed to read data folder: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasSuffix(entry.Name(), "_"+bookID) {
+			folderName = entry.Name()
+			jsonPath = filepath.Join(setting.DataFolder, folderName, fmt.Sprintf("%s_images.json", bookID))
+			break
+		}
+	}
+
+	if jsonPath == "" {
+		return fmt.Errorf("could not find folder for book: %s. Please run GetMetadataOfBook first", bookID)
+	}
 
 	// Check if JSON file exists
 	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
@@ -90,8 +111,8 @@ func DownloadImagesFromJSON(bookID string, setting Setting) error {
 
 	fmt.Printf("Found %d images in metadata\n", len(metadata.Images))
 
-	// Create images directory
-	imagesDir := filepath.Join(setting.DataFolder, bookID, "images")
+	// Create images directory using the folder with bookName_bookID format
+	imagesDir := filepath.Join(setting.DataFolder, folderName, "images")
 	if err := os.MkdirAll(imagesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create images directory: %w", err)
 	}
@@ -211,6 +232,7 @@ type ImageInfo struct {
 // BookImageMetadata represents all images metadata for a book
 type BookImageMetadata struct {
 	BookID     string      `json:"book_id"`
+	BookName   string      `json:"book_name"`
 	URL        string      `json:"url"`
 	TotalPages int         `json:"total_pages"`
 	Images     []ImageInfo `json:"images"`
@@ -290,16 +312,29 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 		})
 	})
 
+	// Extract book name from the first line of images[0].CleanText
+	bookName := ""
+	if len(images) > 0 {
+		lines := strings.Split(strings.TrimSpace(images[0].CleanText), "\n")
+		if len(lines) > 0 {
+			bookName = strings.TrimSpace(lines[0])
+		}
+	}
+
+	fmt.Printf("Extracted Book Name: %s\n", bookName)
+
 	// Create metadata
 	metadata := BookImageMetadata{
 		BookID:     bookID,
+		BookName:   bookName,
 		URL:        url,
 		TotalPages: len(images),
 		Images:     images,
 	}
 
-	// Create output directory
-	bookDir := filepath.Join(setting.DataFolder, bookID)
+	// Create output directory with format: <BookName>_<H00xx>
+	folderName := fmt.Sprintf("%s_%s", bookName, bookID)
+	bookDir := filepath.Join(setting.DataFolder, folderName)
 	if err := os.MkdirAll(bookDir, 0755); err != nil {
 		return err
 	}
@@ -326,5 +361,26 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 	}
 
 	fmt.Printf("✓ Exported %d images info for %s to %s\n", len(images), bookID, jsonPath)
+
+	// Create puncs folder for original text files
+	puncsDir := filepath.Join(bookDir, "puncs")
+	if err := os.MkdirAll(puncsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create puncs directory: %w", err)
+	}
+
+	// Save original text for each image to separate txt files
+	for _, imgInfo := range images {
+		txtFilename := fmt.Sprintf("%s_%s.txt", bookID, imgInfo.ImageID)
+		txtPath := filepath.Join(puncsDir, txtFilename)
+
+		// Write original text to file
+		err := os.WriteFile(txtPath, []byte(imgInfo.OriginalText), 0644)
+		if err != nil {
+			fmt.Printf("Warning: failed to write %s: %v\n", txtFilename, err)
+			continue
+		}
+	}
+
+	fmt.Printf("✓ Saved %d original text files to puncs folder\n", len(images))
 	return nil
 }
