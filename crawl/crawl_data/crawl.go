@@ -48,20 +48,20 @@ func Crawl_NLP_Data() {
 		time.Sleep(1 * time.Second)
 	}
 
-	fmt.Println("\nDownloading images from JSON metadata...")
+	// fmt.Println("\nDownloading images from JSON metadata...")
 
-	// Step 2: Download images for all books sequentially
-	for i := start; i <= end; i++ {
-		bookID := fmt.Sprintf("H%04d", i)
-		fmt.Printf("\n[%d/%d] Downloading images for %s...\n", i-start+1, end-start+1, bookID)
+	// // Step 2: Download images for all books sequentially
+	// for i := start; i <= end; i++ {
+	// 	bookID := fmt.Sprintf("H%04d", i)
+	// 	fmt.Printf("\n[%d/%d] Downloading images for %s...\n", i-start+1, end-start+1, bookID)
 
-		err := DownloadImagesFromJSON(bookID, setting)
-		if err != nil {
-			fmt.Printf("Error downloading images for %s: %v\n", bookID, err)
-		}
-	}
+	// 	err := DownloadImagesFromJSON(bookID, setting)
+	// 	if err != nil {
+	// 		fmt.Printf("Error downloading images for %s: %v\n", bookID, err)
+	// 	}
+	// }
 
-	fmt.Println("\nAll books processed!")
+	// fmt.Println("\nAll books processed!")
 }
 
 // DownloadImagesFromJSON reads the JSON metadata file and downloads all images for a book
@@ -218,6 +218,65 @@ func downloadFile(url string, filepath string) error {
 	return err
 }
 
+// fetchTextFromViewer fetches the text content from the viewer page for a specific image
+// URL format: https://kabc.dongguk.edu/viewer/view?dataId=ABC_BJ_{bookID}_T_001&imgId={imageID}
+func fetchTextFromViewer(bookID string, imageID string, setting Setting) (originalText string, cleanText string, err error) {
+	viewerURL := fmt.Sprintf("%s/viewer/view?dataId=ABC_BJ_%s_T_001&imgId=%s", setting.Url, bookID, imageID)
+
+	resp, err := http.Get(viewerURL)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Find the text container: div[data-xsl-kid="{imageID}"]
+	// The text is in .xsl_body div[data-xsl-kid]
+	selector := fmt.Sprintf("div[data-xsl-kid='%s']", imageID)
+	textContainer := doc.Find(selector).First()
+
+	if textContainer.Length() == 0 {
+		return "", "", fmt.Errorf("could not find text container for image %s", imageID)
+	}
+
+	// Clone to avoid modifying original
+	textClone := textContainer.Clone()
+
+	// Remove line numbers: span[data-xsl-tag="line"]
+	textClone.Find("span[data-xsl-tag='line']").Remove()
+
+	// Remove footnote markers: span[data-xsl-tag="주석"] (e.g., 1), 2), 3))
+	textClone.Find("span[data-xsl-tag='주석']").Remove()
+
+	// Remove footnote content: span[data-xsl-tag="각주"]
+	textClone.Find("span[data-xsl-tag='각주']").Remove()
+
+	// Remove hidden footnote references
+	textClone.Find(".desc-jusok-ref").Remove()
+
+	// Remove footnote references at the end: .desc-jusok-ref-bj
+	textClone.Find(".desc-jusok-ref-bj").Remove()
+
+	// Remove indent spans
+	textClone.Find("span[data-indent]").Remove()
+
+	// Get text
+	originalText = textClone.Text()
+
+	// Clean text
+	cleanText = CleanText(originalText)
+
+	return originalText, cleanText, nil
+}
+
 // ====================== EXPORT BOOK AND IMAGE METADATA ======================
 
 // ImageInfo represents information about a single image/page
@@ -241,11 +300,11 @@ type BookImageMetadata struct {
 // GetMetadataOfBook fetches a book page, extracts all image IDs (data-xsl-kid),
 // and saves the information to a JSON file
 func GetMetadataOfBook(bookID string, setting Setting) error {
-	// Construct URL
-	url := fmt.Sprintf("%s/content/view?dataId=ABC_BJ_%s_T_001&rt=T", setting.Url, bookID)
+	// Construct URL for the main content page to get list of image IDs
+	contentURL := fmt.Sprintf("%s/content/view?dataId=ABC_BJ_%s_T_001&rt=T", setting.Url, bookID)
 
 	// Fetch the page
-	resp, err := http.Get(url)
+	resp, err := http.Get(contentURL)
 	if err != nil {
 		return err
 	}
@@ -261,56 +320,41 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 		return err
 	}
 
-	// Extract all image IDs and corresponding text
-	var images []ImageInfo
+	// First, collect all image IDs from the content page
+	var imageIDs []string
 	doc.Find("[data-xsl-kid]").Each(func(i int, s *goquery.Selection) {
 		imageID, exists := s.Attr("data-xsl-kid")
-		if !exists {
-			return
+		if exists {
+			imageIDs = append(imageIDs, imageID)
 		}
+	})
+
+	fmt.Printf("Found %d image IDs\n", len(imageIDs))
+
+	// Extract all image IDs and corresponding text from viewer pages
+	var images []ImageInfo
+	for i, imageID := range imageIDs {
+		fmt.Printf("[%d/%d] Fetching text for %s...\n", i+1, len(imageIDs), imageID)
 
 		imageURL := fmt.Sprintf("%s/data/image/ABC_BJ/ABC_BJ_%s/ABC_BJ_%s_%s.jpg", setting.Url, bookID, bookID, imageID)
 
-		// Extract Text
-		// The text corresponding to this image/page is in a sibling `dt` element within the same `dl` container.
-		// Structure: dl -> span.btns -> button[data-xsl-kid] (Image ID)
-		//            dl -> dt.ch (Text)
-
-		// Find the parent dl
-		dl := s.Closest("dl")
-		text := ""
-		clean_text := ""
-		if dl.Length() > 0 {
-			// Find the text container (dt.ch)
-			dt := dl.Find("dt.ch")
-			if dt.Length() > 0 {
-				// Clone the selection to avoid modifying the original document
-				dtClone := dt.Clone()
-
-				// Remove line numbers: span[data-xsl-tag="line"]
-				dtClone.Find("span[data-xsl-tag='line']").Remove()
-
-				// Remove footnotes: span[data-xsl-tag="주석"]
-				dtClone.Find("span[data-xsl-tag='주석']").Remove()
-
-				text = dtClone.Text()
-				// Clean text
-				clean_text = CleanText(text)
-			} else {
-				fmt.Printf("Could not find dt.ch for image %s\n", imageID)
-			}
-		} else {
-			fmt.Printf("Could not find parent dl for image %s\n", imageID)
+		// Fetch text from the viewer page
+		text, cleanText, err := fetchTextFromViewer(bookID, imageID, setting)
+		if err != nil {
+			fmt.Printf("Warning: failed to fetch text for %s: %v\n", imageID, err)
 		}
 
 		images = append(images, ImageInfo{
 			ImageID:      imageID,
 			ImageURL:     imageURL,
 			OriginalText: text,
-			CleanText:    clean_text,
+			CleanText:    cleanText,
 			Index:        i,
 		})
-	})
+
+		// Be nice to the server
+		time.Sleep(500 * time.Millisecond)
+	}
 
 	// Extract book name from the first line of images[0].CleanText
 	bookName := ""
@@ -327,7 +371,7 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 	metadata := BookImageMetadata{
 		BookID:     bookID,
 		BookName:   bookName,
-		URL:        url,
+		URL:        contentURL,
 		TotalPages: len(images),
 		Images:     images,
 	}
