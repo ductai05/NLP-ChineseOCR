@@ -253,17 +253,33 @@ func fetchTextFromViewer(bookID string, imageID string, setting Setting) (origin
 	// Remove line numbers: span[data-xsl-tag="line"]
 	textClone.Find("span[data-xsl-tag='line']").Remove()
 
-	// Remove footnote markers: span[data-xsl-tag="주석"] (e.g., 1), 2), 3))
-	textClone.Find("span[data-xsl-tag='주석']").Remove()
+	// Remove footnote markers in main text: span[data-xsl-tag="주석"]
+	// BUT keep inline references with data-jusok-type="원주" (e.g., 〈無量壽經鈔一〉)
+	// AND keep .desc-jusok-ref-bj elements
+	textClone.Find("span[data-xsl-tag='주석']").Each(func(i int, s *goquery.Selection) {
+		// Keep if it's a .desc-jusok-ref-bj element
+		if s.HasClass("desc-jusok-ref-bj") {
+			return
+		}
+		// Keep if it's an inline reference (원주 type) - these contain text like 〈無量壽經鈔一〉
+		jusokType, exists := s.Attr("data-jusok-type")
+		if exists && jusokType == "원주" {
+			return
+		}
+		// Remove all other footnote markers (교감주, 각주 with numbers like 1), 2), etc.)
+		s.Remove()
+	})
 
-	// Remove footnote content: span[data-xsl-tag="각주"]
-	textClone.Find("span[data-xsl-tag='각주']").Remove()
-
-	// Remove hidden footnote references
+	// Remove hidden footnote references (display:none): .desc-jusok-ref
 	textClone.Find(".desc-jusok-ref").Remove()
 
-	// Remove footnote references at the end: .desc-jusok-ref-bj
-	textClone.Find(".desc-jusok-ref-bj").Remove()
+	// For .desc-jusok-ref-bj: keep the text content but remove unwanted elements inside it
+	textClone.Find(".desc-jusok-ref-bj").Each(func(i int, s *goquery.Selection) {
+		// Remove line numbers inside .desc-jusok-ref-bj
+		s.Find("span[data-xsl-tag='line']").Remove()
+		// Remove indent spans inside .desc-jusok-ref-bj
+		s.Find("span[data-indent]").Remove()
+	})
 
 	// Remove indent spans
 	textClone.Find("span[data-indent]").Remove()
@@ -331,30 +347,58 @@ func GetMetadataOfBook(bookID string, setting Setting) error {
 
 	fmt.Printf("Found %d image IDs\n", len(imageIDs))
 
-	// Extract all image IDs and corresponding text from viewer pages
-	var images []ImageInfo
+	// Pre-allocate images slice with correct size
+	images := make([]ImageInfo, len(imageIDs))
+
+	// Create mutex for thread-safe printing
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	// Limit concurrent requests to be nice to the server
+	maxConcurrent := 5
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	// Fetch text for each image concurrently using goroutines
 	for i, imageID := range imageIDs {
-		fmt.Printf("[%d/%d] Fetching text for %s...\n", i+1, len(imageIDs), imageID)
+		wg.Add(1)
 
-		imageURL := fmt.Sprintf("%s/data/image/ABC_BJ/ABC_BJ_%s/ABC_BJ_%s_%s.jpg", setting.Url, bookID, bookID, imageID)
+		go func(index int, imgID string) {
+			defer wg.Done()
 
-		// Fetch text from the viewer page
-		text, cleanText, err := fetchTextFromViewer(bookID, imageID, setting)
-		if err != nil {
-			fmt.Printf("Warning: failed to fetch text for %s: %v\n", imageID, err)
-		}
+			// Acquire semaphore
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
 
-		images = append(images, ImageInfo{
-			ImageID:      imageID,
-			ImageURL:     imageURL,
-			OriginalText: text,
-			CleanText:    cleanText,
-			Index:        i,
-		})
+			imageURL := fmt.Sprintf("%s/data/image/ABC_BJ/ABC_BJ_%s/ABC_BJ_%s_%s.jpg", setting.Url, bookID, bookID, imgID)
 
-		// Be nice to the server
-		time.Sleep(500 * time.Millisecond)
+			mu.Lock()
+			fmt.Printf("[%d/%d] Fetching text for %s...\n", index+1, len(imageIDs), imgID)
+			mu.Unlock()
+
+			// Fetch text from the viewer page
+			text, cleanText, err := fetchTextFromViewer(bookID, imgID, setting)
+			if err != nil {
+				mu.Lock()
+				fmt.Printf("Warning: failed to fetch text for %s: %v\n", imgID, err)
+				mu.Unlock()
+			}
+
+			// Store result in pre-allocated slice (thread-safe since each goroutine writes to different index)
+			images[index] = ImageInfo{
+				ImageID:      imgID,
+				ImageURL:     imageURL,
+				OriginalText: text,
+				CleanText:    cleanText,
+				Index:        index,
+			}
+
+			// Small delay to be nice to the server
+			time.Sleep(100 * time.Millisecond)
+		}(i, imageID)
 	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
 
 	// Extract book name from the first line of images[0].CleanText
 	bookName := ""
