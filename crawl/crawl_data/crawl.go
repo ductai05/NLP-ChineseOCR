@@ -48,20 +48,20 @@ func Crawl_NLP_Data() {
 		time.Sleep(1 * time.Second)
 	}
 
-	// fmt.Println("\nDownloading images from JSON metadata...")
+	fmt.Println("\nDownloading images from JSON metadata...")
 
-	// // Step 2: Download images for all books sequentially
-	// for i := start; i <= end; i++ {
-	// 	bookID := fmt.Sprintf("H%04d", i)
-	// 	fmt.Printf("\n[%d/%d] Downloading images for %s...\n", i-start+1, end-start+1, bookID)
+	// Step 2: Download images for all books sequentially
+	for i := start; i <= end; i++ {
+		bookID := fmt.Sprintf("H%04d", i)
+		fmt.Printf("\n[%d/%d] Downloading images for %s...\n", i-start+1, end-start+1, bookID)
 
-	// 	err := DownloadImagesFromJSON(bookID, setting)
-	// 	if err != nil {
-	// 		fmt.Printf("Error downloading images for %s: %v\n", bookID, err)
-	// 	}
-	// }
+		err := DownloadImagesFromJSON(bookID, setting)
+		if err != nil {
+			fmt.Printf("Error downloading images for %s: %v\n", bookID, err)
+		}
+	}
 
-	// fmt.Println("\nAll books processed!")
+	fmt.Println("\nAll books processed!")
 }
 
 // DownloadImagesFromJSON reads the JSON metadata file and downloads all images for a book
