@@ -5,6 +5,7 @@ pkgs.mkShell {
     python312
     python312Packages.tkinter
     python312Packages.pillow
+    go
   ];
 
   shellHook = ''
