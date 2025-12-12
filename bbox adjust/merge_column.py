@@ -14,9 +14,7 @@ def is_same_column(box1, box2):
     center_x1 = (min_x1 + max_x1) / 2
     center_x2 = (min_x2 + max_x2) / 2
     
-    # Check if center of box1 is within x-range of box2
     cond1 = min_x2 <= center_x1 <= max_x2
-    # Check if center of box2 is within x-range of box1
     cond2 = min_x1 <= center_x2 <= max_x1
     
     return cond1 or cond2
@@ -128,7 +126,7 @@ def process_folder(folder_path):
     print(f"Written new {label_path}")
 
 def main():
-    folders = ['images_1', 'images_2', 'images_3']
+    folders = ['images']
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
     for folder in folders:

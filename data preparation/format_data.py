@@ -5,14 +5,14 @@ import shutil
 import numpy as np
 import pandas as pd
 
-# --- CẤU HÌNH ---
+# Cấu hình
 IMAGE_DIR = "images"
 LABEL_FILE = "images/Label.txt"
 METADATA_FILE = "images/metadata.json"
 OUTPUT_ROOT = "Final_Dataset"
 ERROR_FILE = "error.txt"
 
-# --- CÁC HÀM HỖ TRỢ IO ---
+# các hàm hỗ trợ IO
 def read_image_unicode(path):
     try:
         stream = np.fromfile(path, dtype=np.uint8)
@@ -33,7 +33,7 @@ def write_image_unicode(path, img):
         print(f"Error writing image {path}: {e}")
         return False
 
-# --- CÁC HÀM XỬ LÝ ẢNH ---
+# Các hàm xư lý hình ảnh
 def order_points(pts):
     """
     Sắp xếp 4 điểm theo thứ tự: Top-Left, Top-Right, Bottom-Right, Bottom-Left
@@ -79,7 +79,7 @@ def crop_perspective_and_rotate(img, box_points):
     
     return img_rotated
 
-# --- CÁC HÀM XỬ LÝ DỮ LIỆU ---
+# Các hàm xử lý chính
 def load_metadata(meta_path):
     with open(meta_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
