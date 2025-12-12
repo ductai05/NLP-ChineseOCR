@@ -1,1 +1,0 @@
-copy toàn bộ thư mục sau khi xử lý vào folder này và chạy các file `manula_checker.py` và `val_tool` để kiểm tra

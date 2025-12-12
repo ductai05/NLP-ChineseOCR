@@ -145,7 +145,7 @@ def main():
     error_list = []
     processed_count = 0
     total_boxes = 0
-    all_results = []
+    book_results = {}
 
     for img_rel_path, boxes in labels:
         filename = os.path.basename(img_rel_path.replace('\\', '/'))
@@ -206,7 +206,9 @@ def main():
                     "points": box['points']
                 })
                 
-                all_results.append({
+                if folder_name not in book_results:
+                    book_results[folder_name] = []
+                book_results[folder_name].append({
                     "Image ID": filename,
                     "Patch ID": patch_filename,
                     "Bounding Box": str(box['points']),
@@ -235,9 +237,11 @@ def main():
         with open(ERROR_FILE, 'w', encoding='utf-8') as f:
             f.write("\n".join(error_list))
     
-    if all_results:
-        df = pd.DataFrame(all_results)
-        df.to_excel(os.path.join(OUTPUT_ROOT, "results.xlsx"), index=False, columns=["Image ID", "Patch ID", "Bounding Box", "Sino-Nom OCR"])
+    for folder_name, results in book_results.items():
+        if results:
+            df = pd.DataFrame(results)
+            book_dir = os.path.join(OUTPUT_ROOT, folder_name)
+            df.to_excel(os.path.join(book_dir, "results.xlsx"), index=False, columns=["Image ID", "Patch ID", "Bounding Box", "Sino-Nom OCR"])
 
     print(f"\n\nSố ảnh: {processed_count} / {len(labels)}")
     print(f"Số boxes: {total_boxes}")
