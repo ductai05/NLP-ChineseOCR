@@ -8,6 +8,7 @@
 - [PaddleOCR-Tutorial](https://www.paddleocr.ai/latest/en/version3.x/module_usage/text_detection.html): PaddleOCR tutorial for text detection.
 
 ## Project Resources
+- `data_preparation/`: Scripts for combining and formatting the CWKB and NomNaOCR datasets.
 - `1_fine-tuning.ipynb`: Environment setup, pre-trained model download, and PP-OCRv5 fine-tuning.
 - `2_evaluation.ipynb`: Model evaluation, inference export, and training visualization.
 - `train_log.png`: Training loss and metrics visualization.
