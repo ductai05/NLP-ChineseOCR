@@ -4,6 +4,7 @@
 - [CWKB](https://kabc.dongguk.edu/content/list?itemId=ABC_BJ): Complete Works of Korean Buddhism.
 - [Dataset-NLP_Final](https://www.kaggle.com/datasets/dinhducanhkhoa/dataset-nlp-final): The cleaned, combined, and pre-processed NomNaOCR and CWKB dataset.
 - [Model-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/model-nlp-final): Fine-tuned PaddleOCR model (model checkpoints and configuration) for NomNaOCR text detection.
+- [Results-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/results-nlp-final): Inference results.
 - [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR): PaddleOCR repository.
 - [PaddleOCR-Tutorial](https://www.paddleocr.ai/latest/en/version3.x/module_usage/text_detection.html): PaddleOCR tutorial for text detection.
 
