@@ -70,7 +70,8 @@ Mô hình hội tụ rất nhanh, đạt tiệm cận mức lý tưởng sau 20 
 ## 6. Công nghệ / Tài nguyên trực tuyến
 
 - **Ngôn ngữ & Framework:** Python, PaddlePaddle GPU, PaddleOCR.
-- **Bộ dữ liệu gốc:** [NomNaOCR](https://www.kaggle.com/datasets/quandang/nomnaocr), [CWKB](https://kabc.dongguk.edu/content/list?itemId=ABC_BJ).
-- **Bộ dữ liệu đã chuẩn hóa:** [Dataset-NLP_Final](https://www.kaggle.com/datasets/dinhducanhkhoa/dataset-nlp-final).
-- **Model checkpoints & Cấu hình:** [Model-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/model-nlp-final).
-- **Dữ liệu Inference:** [Results-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/results-nlp-final).
+- **Dữ liệu, mô hình và kết quả:** [Dataset-Model-Results-NLP_Final](https://www.kaggle.com/datasets/cieldt/dataset-model-results-nlp-final).
+  - **Bộ dữ liệu gốc:** [NomNaOCR](https://www.kaggle.com/datasets/quandang/nomnaocr), [CWKB](https://kabc.dongguk.edu/content/list?itemId=ABC_BJ).
+  - **Bộ dữ liệu đã chuẩn hóa:** [Dataset-NLP_Final](https://www.kaggle.com/datasets/dinhducanhkhoa/dataset-nlp-final).
+  - **Model checkpoints & Cấu hình:** [Model-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/model-nlp-final).
+  - **Dữ liệu Inference:** [Results-NLP_Final](https://www.kaggle.com/datasets/nguyenlehoangtrung/results-nlp-final).
